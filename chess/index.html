@@ -1067,6 +1067,9 @@
         var now = performance.now(), d = now - clock.last;
         if (d <= 0) return;
         clock.last = now;
+        // 引擎还没就绪（下载/编译/启动中）时两边都不计时：
+        // 否则它的钟会在下载期间白掉时间，慢网络下首次加载甚至会被走超时
+        if (!engine.ready && !engine.dead) return;
         clock[state.turn] -= d;
         if (clock[state.turn] <= 0) { clock[state.turn] = 0; flagFall(state.turn); return; }
         paintClock();
