@@ -9,3 +9,10 @@ example2_files/
 R-C.jfif
 homepage/
 ~$*.docx
+
+# math/ build & test artifacts (regenerate: see the build line in each .cpp header)
+*.exe
+math/precision_vectors.json
+
+# 本地临时产物：截图、测试 harness、测试用 Chrome profile（含会话数据）
+.qoder-tmp/

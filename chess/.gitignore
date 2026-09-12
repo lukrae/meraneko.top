@@ -1,0 +1,4 @@
+# 站点只用预压产物：原始 wasm 体积大（54MB），不入库。
+# 老浏览器（Firefox 89–112：有 SIMD 但无 DecompressionStream）才需要它兜底，
+# 真要支持就把 salmonia.wasm 一并提交。
+salmonia.wasm
