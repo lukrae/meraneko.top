@@ -101,25 +101,6 @@
     .sq.move.hover,
     .sq.cap.hover { box-shadow: var(--sunk-press); }
 
-    .sq::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: 20%;
-        background: rgba(122, 129, 140, 0.18);
-        box-shadow: inset 2px 2px 6px rgba(184, 188, 194, 0.6),
-                    inset -2px -2px 6px rgba(255, 255, 255, 0.5);
-        opacity: 0;
-        transition: opacity 0.25s ease-in-out;
-    }
-
-    .sq.load::before { opacity: 1; }
-
-    .sq.work::before {
-        animation: loadPulse 1.6s ease-in-out infinite;
-        animation-delay: calc(var(--d, 0) * 100ms);
-    }
-
     .sq.move::after {
         content: '';
         position: absolute;
@@ -306,20 +287,21 @@
         white-space: nowrap;
     }
 
-    @keyframes loadPulse {
-        0%, 100% { opacity: 0; }
-        40%, 60% { opacity: 1; }
+    /* 加载麦浪：同一个动画兼顾淡入与循环起伏。
+       下载段靠 JS 推进 --d 的前沿，编译/启动段已出现的棋子反复做。 */
+    @keyframes loadWave {
+        0% { opacity: 0; transform: scale(0.86); }
+        14% { opacity: 1; transform: scale(1); }
+        55% { opacity: 0.5; transform: scale(0.93); }
+        100% { opacity: 1; transform: scale(1); }
     }
 
-    @keyframes rise {
-        from { opacity: 0; transform: scale(0.86); }
-        to { opacity: 1; transform: scale(1); }
+    .pc.wait {
+        animation: loadWave 1.6s ease-in-out infinite;
+        animation-delay: calc(var(--d, 0) * 90ms);
     }
 
-    .pc.rise {
-        animation: rise 0.42s ease-in-out both;
-        animation-delay: calc(var(--d) * 45ms);
-    }
+    .pc.hide { opacity: 0; }
 
     @media (max-width: 700px) {
         .table { flex-direction: column; }
@@ -328,8 +310,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .pc.rise { animation: none; }
-        .sq.work::before { animation: none; opacity: 0.55; }
+        .pc.wait { animation: none; }
         .pc, .promo button, .clk, .ctl { transition: none; }
     }
 </style>
@@ -727,20 +708,9 @@
             sq.setAttribute('role', 'gridcell');
             sq.dataset.i = r * 8 + c;
             sq.tabIndex = -1;
-            sq.style.setProperty('--d', r + c);
             squares.push(sq);
         }
     }
-
-    var LOAD_ORDER = (function () {
-        var a = [], i;
-        for (i = 0; i < 64; i++) a.push(i);
-        a.sort(function (x, y) {
-            var dx = (x >> 3) + (x & 7), dy = (y >> 3) + (y & 7);
-            return dx === dy ? (x >> 3) - (y >> 3) : dx - dy;
-        });
-        return a;
-    })();
 
     function layoutBoard() {
         grid.textContent = '';
@@ -758,23 +728,24 @@
 
     layoutBoard();
 
-    function pieceSVG(p, delay) {
+    function pieceSVG(p, d) {
         var white = p.c === 'w';
-        var cls = 'pc ' + (white ? 'pc--out' : 'pc--in') + (delay == null ? '' : ' rise');
-        var style = delay == null ? '' : ' style="--d:' + delay + '"';
+        var cls = 'pc ' + (white ? 'pc--out' : 'pc--in');
+        if (loading()) cls += (d <= loadState.limit ? ' wait' : ' hide');
+        var style = d == null ? '' : ' style="--d:' + d + '"';
         return '<svg class="' + cls + '"' + style + ' viewBox="0 0 100 100" aria-hidden="true">' +
                '<use href="#' + SYM[p.t] + '" filter="url(#' + (white ? 'convex' : 'engrave') + ')"/></svg>';
     }
 
-    function paint(i, delay) {
+    function paint(i) {
         var p = state.board[i];
-        squares[i].innerHTML = p ? pieceSVG(p, delay) : '';
+        squares[i].innerHTML = p ? pieceSVG(p, (i >> 3) + (i & 7)) : '';
         squares[i].setAttribute('aria-label',
             FILES[i & 7] + (8 - (i >> 3)) + (p ? ' ' + (p.c === 'w' ? '白' : '黑') + NAME[p.t] : ' 空'));
     }
 
-    function paintAll(animate) {
-        for (var i = 0; i < 64; i++) paint(i, animate ? ((i >> 3) + (i & 7)) : null);
+    function paintAll() {
+        for (var i = 0; i < 64; i++) paint(i);
     }
 
     function clearMarks() {
@@ -801,7 +772,7 @@
     }
 
     function markOwn() {
-        if (over || engine.thinking) return;
+        if (over || engine.thinking || loading()) return;
         var side = engine.dead ? state.turn : (state.turn === human ? human : null);
         if (!side) return;
         for (var i = 0; i < 64; i++) {
@@ -833,7 +804,7 @@
         state = E.makeMove(state, m);
         sel = -1; targets = []; drag = null;
         lastMove = { from: m.from, to: m.to };
-        clearMarks(); paintAll(false);
+        clearMarks(); paintAll();
         var st = E.status(state);
         over = (st === 'mate' || st === 'stalemate');
         paintState(st);
@@ -860,7 +831,7 @@
     }
 
     function activate(i) {
-        if (busy || over) return;
+        if (busy || over || loading()) return;
         if (!engine.dead && state.turn !== human) { sel = -1; targets = []; showSelection(); return; }
         var p = state.board[i];
         if (p && p.c === state.turn) {
@@ -1008,10 +979,6 @@
         }
     });
 
-    grid.addEventListener('animationend', function (e) {
-        if (e.animationName === 'rise') e.target.classList.remove('rise');
-    });
-
     // ---------------------------------------------------------------
     // 棋钟：两块时间块（凸起=该走的一方），档位与执子方按钮
     // ---------------------------------------------------------------
@@ -1076,38 +1043,26 @@
     }, 100);
 
     // ---------------------------------------------------------------
-    // 引擎加载进度：棋盘当进度条，非阻塞
-    //   下载段按字节沿对角线填充；编译/启动段没有字节进度，
-    //   切换成不确定态呼吸，保证「一直有东西在动」而不像卡死
+    // 引擎加载看门狗：加载失败或挂死时降级为同机对下（不做任何进度显示）
+    //   下载段 8s、编译/启动段 20s（后两段本就没有消息）
     // ---------------------------------------------------------------
 
-    var load = { phase: null, filled: -1 };
     var loadWatch = 0, initWatch = 0;
+    var loadState = { limit: 0 };
 
-    function paintLoad(phase, p) {
-        var i, n;
-        if (phase === 'download') {
-            n = p == null ? 0 : Math.round(Math.max(0, Math.min(1, p)) * 64);
-            if (n === load.filled && load.phase === phase) return;
-            load.filled = n;
-            for (i = 0; i < 64; i++) {
-                squares[i].classList.remove('work');
-                squares[LOAD_ORDER[i]].classList.toggle('load', i < n);
-            }
-        } else if (phase !== load.phase) {
-            load.filled = -1;
-            for (i = 0; i < 64; i++) {
-                squares[i].classList.remove('load');
-                squares[i].classList.add('work');
-            }
+    function loading() { return !engine.ready && !engine.dead; }
+
+    // 只切类、不重写 innerHTML：否则每条 progress 都会重启麦浪动画
+    function applyLoadReveal() {
+        if (!loading()) return;
+        for (var i = 0; i < 64; i++) {
+            if (!state.board[i]) continue;
+            var pc = squares[i].firstChild;
+            if (!pc || !pc.classList) continue;
+            var on = ((i >> 3) + (i & 7)) <= loadState.limit;
+            pc.classList.toggle('wait', on);
+            pc.classList.toggle('hide', !on);
         }
-        load.phase = phase;
-    }
-
-    function clearLoad() {
-        load.phase = null;
-        load.filled = -1;
-        for (var i = 0; i < 64; i++) squares[i].classList.remove('load', 'work');
     }
 
     function clearWatch() {
@@ -1118,13 +1073,13 @@
     function armWatch(ms) {
         clearTimeout(loadWatch);
         clearTimeout(initWatch);
-        loadWatch = setTimeout(function () { clearLoad(); engineDown(); }, ms);
+        loadWatch = setTimeout(engineDown, ms);
     }
 
     function armInitWatch() {
         clearTimeout(loadWatch);
         clearTimeout(initWatch);
-        initWatch = setTimeout(function () { clearLoad(); engineDown(); }, 20000);
+        initWatch = setTimeout(engineDown, 20000);
     }
 
     // ---------------------------------------------------------------
@@ -1191,8 +1146,8 @@
         engine.dead = true;
         engine.thinking = false;
         clearWatch();
-        clearLoad();
         grid.classList.remove('thinking');
+        paintAll();
         announce('引擎未载入');
         syncControls();
     }
@@ -1206,7 +1161,7 @@
     function engineReady() {
         engine.ready = true;
         clearWatch();
-        clearLoad();
+        paintAll();
         sendEngine('uci')
             .then(function () { return sendEngine('isready'); })
             .then(function () { return sendEngine('ucinewgame'); })
@@ -1235,13 +1190,19 @@
             var msg = ev.data || {};
             if (msg.type === 'progress') {
                 armWatch(8000);
-                paintLoad('download', msg.total ? msg.loaded / msg.total : null);
+                var n = msg.total ? Math.round((msg.loaded / msg.total) * 14) : loadState.limit;
+                if (n !== loadState.limit) { loadState.limit = n; applyLoadReveal(); }
                 return;
             }
             if (msg.type === 'phase') {
-                if (msg.phase === 'download') armWatch(8000);
-                else armInitWatch();
-                paintLoad(msg.phase, null);
+                if (msg.phase === 'download') {
+                    armWatch(8000);
+                } else {
+                    armInitWatch();
+                    // 下载完成：编译/启动段没有字节进度，让已加载部分反复做麦浪
+                    loadState.limit = 14;
+                    applyLoadReveal();
+                }
                 return;
             }
             var slot = msg.id != null ? engine.pending[msg.id] : null;
@@ -1275,7 +1236,7 @@
             });
     }
 
-    function newGame(wave) {
+    function newGame() {
         state = E.start();
         history = [];
         sel = -1; targets = []; drag = null; over = false;
@@ -1293,7 +1254,7 @@
         layoutClock();
         clearMarks(); clearState();
         layoutBoard();
-        paintAll(!!wave);
+        paintAll();
         paintClock(); syncControls();
         announce('');
         if (engine.ready) {
@@ -1311,7 +1272,7 @@
         tcIndex = (tcIndex + 1) % TC.length;
         tcBtn.textContent = TC[tcIndex].label;
         tcBtn.setAttribute('aria-label', '时限 ' + TC[tcIndex].label + '，点击切换');
-        newGame(false);
+        newGame();
     });
 
     sideBtn.addEventListener('click', function () {
@@ -1320,10 +1281,10 @@
         flipped = human === 'b';
         sideBtn.innerHTML = pieceSVG({ t: 'k', c: human }, null);
         sideBtn.setAttribute('aria-label', (human === 'w' ? '你执白' : '你执黑') + '，点击换边');
-        newGame(false);
+        newGame();
     });
 
-    newGame(true);
+    newGame();
     bootEngine();
 })();
 </script>
