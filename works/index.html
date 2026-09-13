@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2ECFC">
+<meta name="description" content="MeraNeko 的作品">
+<title>作品 · MeraNeko</title>
+<link rel="shortcut icon" href="../favicon.jpg">
+<style>
+  :root {
+    --field: #F2ECFC;
+    --accent: #7C5CFF;
+    --ink: #1B1530;
+    --ink-2: rgba(27, 21, 48, .62);
+    --line: rgba(27, 21, 48, .12);
+    --glass: rgba(255, 255, 255, .72);
+    --ease: cubic-bezier(.22, .85, .26, 1);
+    --morph-dur: .78s;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--field);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, p { margin: 0; }
+
+  /* 流体渐变场：WebGL fbm 画在 canvas 上，下面垫一层静态径向渐变兜底
+     （不支持 WebGL / 编译失败时就是它） */
+  .stage {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: var(--field);
+  }
+
+  .stage-fallback {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(58% 52% at 22% 26%, rgba(163, 139, 252, .70), rgba(163, 139, 252, 0) 70%),
+      radial-gradient(52% 48% at 79% 21%, rgba(173, 203, 249, .60), rgba(173, 203, 249, 0) 70%),
+      radial-gradient(58% 58% at 63% 84%, rgba(249, 177, 229, .62), rgba(249, 177, 229, 0) 70%),
+      var(--field);
+  }
+
+  .stage canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 只在四周收一点亮度，正文对比度交给卡片自己的玻璃层 */
+  .stage-scrim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(122% 112% at 50% 42%, rgba(255, 255, 255, .04) 40%, rgba(255, 255, 255, .30) 100%);
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(2rem, 4.5vw, 3.25rem);
+    width: min(46rem, 100%);
+    margin-inline: auto;
+    padding: clamp(2.5rem, 7vw, 5rem) clamp(1.25rem, 4vw, 2.5rem);
+  }
+
+  .head { display: flex; flex-direction: column; gap: .5rem; }
+
+  .eyebrow {
+    font-size: .8125rem;
+    font-weight: 600;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  .title {
+    font-size: clamp(2.25rem, 6.5vw, 3.25rem);
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1.05;
+  }
+
+  /* 统一分格：每格同一套毛玻璃，格子宽了就把文字排宽松 */
+  .works {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: clamp(.875rem, 2vw, 1.125rem);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: clamp(1rem, 2.6vw, 1.5rem);
+    padding: clamp(1rem, 2.6vw, 1.375rem);
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    backdrop-filter: blur(28px) saturate(150%);
+    box-shadow: 0 18px 50px rgba(43, 28, 92, .12);
+    color: inherit;
+    text-decoration: none;
+    transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s var(--ease);
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124, 92, 255, .42);
+    box-shadow: 0 26px 60px rgba(43, 28, 92, .18);
+  }
+
+  .card:active { transform: translateY(0) scale(.995); }
+
+  .card:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 0 4px rgba(124, 92, 255, .5);
+  }
+
+  .card-mark {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: clamp(3rem, 8vw, 3.75rem);
+    aspect-ratio: 1;
+    border-radius: .75rem;
+    background: rgba(124, 92, 255, .10);
+    border: 1px solid rgba(124, 92, 255, .16);
+  }
+
+  .card-mark svg { width: 62%; height: 62%; fill: var(--accent); }
+
+  .card-text { display: flex; flex-direction: column; gap: .3125rem; min-width: 0; }
+
+  .card-title { font-size: 1.125rem; font-weight: 600; letter-spacing: -.01em; }
+
+  .card-desc { font-size: .9375rem; line-height: 1.55; color: var(--ink-2); }
+
+  .card-go {
+    margin-left: auto;
+    font-size: 1.125rem;
+    color: var(--ink-2);
+    transition: transform .3s var(--ease), color .3s ease-out;
+  }
+
+  .card:hover .card-go { transform: translateX(3px); color: var(--accent); }
+
+  .foot { font-size: .875rem; }
+
+  .foot a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  .foot a:hover { color: var(--accent); border-color: rgba(124, 92, 255, .45); }
+
+  /* ---------------------------------------------------------------
+     风格层：铺满视口、压在毛玻璃层之上，圆形裁切。悬停某张卡片时
+     把圆心挪到那张卡片，半径从 0 扩到最远角；移开再缩回 0。
+     结构与 .page 完全一致，所以卡片看着是「原地换掉了材质」。
+     --------------------------------------------------------------- */
+  .morph {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    /* 圆心跟着 --x/--y：收起时才是原地缩回那张卡片，而不是滑向屏幕正中 */
+    clip-path: circle(0px at var(--x, 50%) var(--y, 50%));
+    transition: clip-path var(--morph-dur) var(--ease);
+  }
+
+  .morph.open { clip-path: circle(var(--r, 120vh) at var(--x, 50%) var(--y, 50%)); }
+
+  .morph-panel { display: none; }
+
+  .morph.open[data-theme-on="neu"] .morph-panel[data-theme-panel="neu"],
+  .morph.open[data-theme-on="code"] .morph-panel[data-theme-panel="code"] { display: block; }
+
+  /* 拟态（棋盘页那套令牌） */
+  .morph-panel[data-theme-panel="neu"] {
+    --neu-bg: #e0e5ec;
+    --neu-shade: #b8bcc2;
+    --neu-light: #ffffff;
+    --neu-ink: #5a6270;
+    --neu-ink-2: #6f7787;
+    --neu-piece: #c3cad5;
+    min-height: 100dvh;
+    background: var(--neu-bg);
+    color: var(--neu-ink);
+  }
+
+  .morph-panel[data-theme-panel="neu"] .eyebrow { color: var(--neu-ink-2); }
+
+  .morph-panel[data-theme-panel="neu"] .title { color: var(--neu-ink); }
+
+  .morph-panel[data-theme-panel="neu"] .card {
+    border-color: transparent;
+    background: var(--neu-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: 12px 12px 24px var(--neu-shade), -12px -12px 24px var(--neu-light);
+  }
+
+  .morph-panel[data-theme-panel="neu"] .card-mark {
+    border-color: transparent;
+    background: var(--neu-bg);
+    box-shadow: inset 6px 6px 12px var(--neu-shade), inset -6px -6px 12px var(--neu-light);
+  }
+
+  .morph-panel[data-theme-panel="neu"] .card-mark svg { fill: var(--neu-piece); }
+
+  .morph-panel[data-theme-panel="neu"] .card-desc,
+  .morph-panel[data-theme-panel="neu"] .card-go,
+  .morph-panel[data-theme-panel="neu"] .foot a { color: var(--neu-ink-2); }
+
+  .morph-panel[data-theme-panel="neu"] .foot a { border-bottom-color: rgba(90, 98, 112, .28); }
+
+  /* 深色编辑器（格式化器页那套令牌） */
+  .morph-panel[data-theme-panel="code"] {
+    position: relative;
+    --code-bg: #08090D;
+    --code-surface: #0F1117;
+    --code-line: rgba(255, 255, 255, .075);
+    --code-ink: #C9CEDC;
+    --code-ink-2: #7C8399;
+    --code-accent: #7C5CFF;
+    min-height: 100dvh;
+    background: var(--code-bg);
+    color: var(--code-ink);
+  }
+
+  /* 顶部紫光，和格式化器页保持一致 */
+  .morph-panel[data-theme-panel="code"]::before {
+    content: "";
+    position: absolute;
+    inset: -20% 0 auto;
+    height: 42vh;
+    background: radial-gradient(46% 62% at 50% 0%, rgba(124, 92, 255, .18), rgba(124, 92, 255, 0) 72%);
+  }
+
+  .morph-panel[data-theme-panel="code"] .page { position: relative; }
+
+  .morph-panel[data-theme-panel="code"] .eyebrow { color: var(--code-ink-2); }
+
+  .morph-panel[data-theme-panel="code"] .title { color: var(--code-ink); }
+
+  .morph-panel[data-theme-panel="code"] .card {
+    border-color: var(--code-line);
+    background: var(--code-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+  }
+
+  .morph-panel[data-theme-panel="code"] .card-mark {
+    border-color: rgba(124, 92, 255, .28);
+    background: rgba(124, 92, 255, .12);
+  }
+
+  .morph-panel[data-theme-panel="code"] .card-mark svg { fill: #A78BFF; }
+
+  .morph-panel[data-theme-panel="code"] .card-desc,
+  .morph-panel[data-theme-panel="code"] .card-go,
+  .morph-panel[data-theme-panel="code"] .foot a { color: var(--code-ink-2); }
+
+  .morph-panel[data-theme-panel="code"] .foot a { border-bottom-color: rgba(255, 255, 255, .16); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card, .card-go { transition: none; }
+    .card:hover { transform: none; }
+    .morph { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="stage" aria-hidden="true">
+    <div class="stage-fallback"></div>
+    <canvas id="fluid"></canvas>
+    <div class="stage-scrim"></div>
+  </div>
+
+  <main class="page" id="page">
+    <header class="head">
+      <p class="eyebrow">MeraNeko</p>
+      <h1 class="title">作品</h1>
+    </header>
+
+    <ul class="works">
+      <li>
+        <a class="card" href="../chess/" data-theme="neu">
+          <span class="card-mark" aria-hidden="true">
+            <svg viewBox="0 0 100 100">
+              <path d="M28 88 H72 Q78 88 78 82 V78 Q78 72 72 72 H28 Q22 72 22 78 V82 Q22 88 28 88 Z"/>
+              <path d="M34 74 C34 66 36 60 39 55 C42 51 42 48 39 46 C34 44 27 42 22 41 Q14 40 14 35 Q14 29 21 25 C28 21 32 16 34 12 L35 5 Q37 2 40 6 L43 13 C45 15 46 16 48 18 C53 21 58 25 62 31 C67 39 69 50 70 62 L70 74 Z"/>
+            </svg>
+          </span>
+          <span class="card-text">
+            <span class="card-title">国际象棋</span>
+            <span class="card-desc">拟态浮雕棋盘 · 完整走子规则 · Salomnia 引擎对弈</span>
+          </span>
+          <span class="card-go" aria-hidden="true">→</span>
+        </a>
+      </li>
+      <li>
+        <a class="card" href="../formatter/" data-theme="code">
+          <span class="card-mark" aria-hidden="true">
+            <svg viewBox="0 0 100 100">
+              <rect x="15" y="20" width="7" height="26" rx="3.5"/>
+              <rect x="15" y="54" width="7" height="26" rx="3.5"/>
+              <rect x="30" y="24" width="54" height="8" rx="4"/>
+              <rect x="30" y="46" width="38" height="8" rx="4"/>
+              <rect x="30" y="68" width="46" height="8" rx="4"/>
+            </svg>
+          </span>
+          <span class="card-text">
+            <span class="card-title">代码格式化器</span>
+            <span class="card-desc">C++ / Python / JS / JSON · 主动折行与对齐 · 语义校验</span>
+          </span>
+          <span class="card-go" aria-hidden="true">→</span>
+        </a>
+      </li>
+    </ul>
+
+    <footer class="foot"><a href="../">← 返回主页</a></footer>
+  </main>
+
+  <div class="morph" id="morph" aria-hidden="true">
+    <div class="morph-panel" data-theme-panel="neu">
+      <div class="page">
+        <header class="head">
+          <p class="eyebrow">MeraNeko</p>
+          <h1 class="title">作品</h1>
+        </header>
+        <!-- 卡片列表由脚本从主列表克隆（见文件末尾），保证几何与主页面完全一致 -->
+        <ul class="works"></ul>
+        <footer class="foot"><span>← 返回主页</span></footer>
+      </div>
+    </div>
+
+    <div class="morph-panel" data-theme-panel="code">
+      <div class="page">
+        <header class="head">
+          <p class="eyebrow">MeraNeko</p>
+          <h1 class="title">作品</h1>
+        </header>
+        <ul class="works"></ul>
+        <footer class="foot"><span>← 返回主页</span></footer>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------
+     风格层里的卡片列表从主列表克隆：三份几何必须完全一致（不然圆形裁切
+     铺过去时卡片会错位），克隆成 <span> 去掉链接，只在样式层里显示。
+     加作品时只改主列表一处即可。
+     --------------------------------------------------------------- */
+  const worksItems = document.querySelectorAll('#page .works > li');
+  for (const list of document.querySelectorAll('.morph-panel .works')) {
+    for (const item of worksItems) {
+      const copy = item.cloneNode(true);
+      const link = copy.querySelector('a.card');
+      if (link) {
+        const span = document.createElement('span');
+        span.className = link.className;
+        while (link.firstChild) span.appendChild(link.firstChild);
+        span.removeAttribute('aria-hidden');
+        link.replaceWith(span);
+      }
+      list.appendChild(copy);
+    }
+  }
+
+  const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.getElementById('fluid');
+  let gl = null;
+
+  try {
+    gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' })
+      || canvas.getContext('experimental-webgl');
+  } catch (err) {
+    gl = null;
+  }
+  /* 拿不到 WebGL 就留着 CSS 兜底渐变，什么都不做 */
+  if (gl) {
+
+    const VERT = 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }';
+
+    const FRAG = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 u_res; uniform float u_time, u_grain;
+vec2 hash2(vec2 p){ p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))); return fract(sin(p)*43758.5453)*2.0-1.0; }
+float noise(vec2 p){ vec2 i=floor(p),f=fract(p),u=f*f*(3.0-2.0*f);
+  return mix(mix(dot(hash2(i),f),dot(hash2(i+vec2(1,0)),f-vec2(1,0)),u.x),
+             mix(dot(hash2(i+vec2(0,1)),f-vec2(0,1)),dot(hash2(i+vec2(1,1)),f-vec2(1,1)),u.x),u.y); }
+float fbm(vec2 p){ float v=0.0,a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p*=2.0; a*=0.5; } return v; }
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res.xy; vec2 q=uv; q.x*=u_res.x/u_res.y;
+  float t=u_time*0.045;
+  float f1=fbm(q*1.35+vec2(t,-t*0.45));
+  float f2=fbm(q*1.9+vec2(f1*0.85-t*0.28,f1+t*0.22));
+  float f=fbm(q*1.1+f2*1.15);
+  vec3 base=vec3(0.949,0.925,0.988), violet=vec3(0.655,0.545,0.980), blue=vec3(0.714,0.741,0.976), pink=vec3(0.980,0.694,0.898), mint=vec3(0.686,0.933,0.898);
+  vec3 col=base;
+  col=mix(col,violet,smoothstep(0.10,0.62,f+0.28)*0.80);
+  col=mix(col,blue,smoothstep(0.22,0.78,f2*0.5+0.5)*0.40);
+  col=mix(col,pink,smoothstep(0.26,0.86,f1*0.5+0.5)*0.58);
+  col=mix(col,mint,smoothstep(0.62,0.96,f*0.5+0.5)*0.26);
+  float vig=smoothstep(1.25,0.25,length(uv-0.5)); col=mix(col,vec3(1.0),(1.0-vig)*0.12);
+  col+=(fract(sin(dot(uv+t,vec2(12.9898,78.233)))*43758.5453)-0.5)*u_grain*0.06;
+  gl_FragColor=vec4(col,1.0);
+}`;
+
+    const compile = (type, src) => {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+      return sh;
+    };
+
+    const vs = compile(gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, FRAG);
+
+    if (vs && fs) {
+      const program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program);
+
+      if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        gl.useProgram(program);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+
+        const attrib = gl.getAttribLocation(program, 'p');
+        gl.enableVertexAttribArray(attrib);
+        gl.vertexAttribPointer(attrib, 2, gl.FLOAT, false, 0, 0);
+
+        const uRes = gl.getUniformLocation(program, 'u_res');
+        const uTime = gl.getUniformLocation(program, 'u_time');
+        gl.uniform1f(gl.getUniformLocation(program, 'u_grain'), 0.4);
+
+        const dprCap = () => Math.min(window.devicePixelRatio || 1, 2);
+
+        const resize = () => {
+          const w = Math.max(1, Math.round(canvas.clientWidth * dprCap()));
+          const h = Math.max(1, Math.round(canvas.clientHeight * dprCap()));
+          if (canvas.width === w && canvas.height === h) return false;
+          canvas.width = w;
+          canvas.height = h;
+          gl.viewport(0, 0, w, h);
+          gl.uniform2f(uRes, w, h);
+          return true;
+        };
+
+        const draw = (seconds) => {
+          gl.uniform1f(uTime, seconds);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        };
+
+        let frameId = null;
+        const frame = (now) => {
+          frameId = window.requestAnimationFrame(frame);
+          draw(now / 1000);
+        };
+        const start = () => { if (frameId === null) frameId = window.requestAnimationFrame(frame); };
+        const stop = () => { if (frameId !== null) { window.cancelAnimationFrame(frameId); frameId = null; } };
+
+        resize();
+
+        if (prefersReduced) {
+          /* 减动效：只画一帧定格 */
+          draw(11.0);
+        } else if ('IntersectionObserver' in window) {
+          /* 滚出视口就停，别白烧 GPU */
+          new IntersectionObserver((entries) => {
+            for (const entry of entries) entry.isIntersecting ? start() : stop();
+          }, { threshold: 0 }).observe(canvas);
+        } else {
+          start();
+        }
+
+        /* 画布尺寸靠盒模型来，别只信 window.resize（隐藏页恢复可见时不会触发） */
+        if ('ResizeObserver' in window) {
+          new ResizeObserver(() => { if (resize() && prefersReduced) draw(11.0); }).observe(canvas);
+        }
+        window.addEventListener('resize', () => {
+          if (resize() && prefersReduced) draw(11.0);
+        }, { passive: true });
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------
+     风格辐射：圆心落在被悬停/聚焦的那张卡片，半径取到最远角，
+     所以光是从卡片往外铺满整屏；移开把半径收回 0（外→内收缩）。
+     --------------------------------------------------------------- */
+  const morph = document.getElementById('morph');
+  if (!morph || prefersReduced) return;
+
+  const cards = document.querySelectorAll('.card[data-theme]');
+
+  function open(card) {
+    const theme = card.getAttribute('data-theme');
+    if (!morph.querySelector('[data-theme-panel="' + theme + '"]')) return;
+
+    const box = card.getBoundingClientRect();
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    const far = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+
+    /* 先落圆心、再开口：半径从 0 起跳，圆心切换本身看不见 */
+    morph.setAttribute('data-theme-on', theme);
+    morph.style.setProperty('--x', cx + 'px');
+    morph.style.setProperty('--y', cy + 'px');
+    morph.style.setProperty('--r', far + 'px');
+    void morph.offsetWidth;
+    morph.classList.add('open');
+  }
+
+  function close() {
+    morph.classList.remove('open');
+  }
+
+  for (const card of cards) {
+    card.addEventListener('pointerenter', () => open(card));
+    card.addEventListener('pointerleave', close);
+    card.addEventListener('focus', () => open(card));
+    card.addEventListener('blur', close);
+  }
+})();
+</script>
+</body>
+</html>
