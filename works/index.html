@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F2ECFC">
-<meta name="description" content="MeraNeko 的作品">
-<title>作品 · MeraNeko</title>
+<meta name="description" content="MeraNeko 的作品集">
+<title>作品集 · MeraNeko</title>
 <link rel="shortcut icon" href="../favicon.jpg">
 <style>
   :root {
@@ -80,10 +80,19 @@
     gap: clamp(2rem, 4.5vw, 3.25rem);
     width: min(46rem, 100%);
     margin-inline: auto;
-    padding: clamp(2.5rem, 7vw, 5rem) clamp(1.25rem, 4vw, 2.5rem);
+    /* 上边留出固定标题的位置，卡片不会钻到标题底下 */
+    padding: clamp(6.5rem, 20vh, 8rem) clamp(1.25rem, 4vw, 2.5rem) clamp(2.5rem, 7vw, 5rem);
   }
 
-  .head { display: flex; flex-direction: column; gap: .5rem; }
+  /* 标题钉在左上角，不跟着卡片居中 */
+  .head {
+    position: fixed;
+    top: clamp(1.5rem, 5vh, 2.75rem);
+    left: clamp(1.25rem, 4vw, 2.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
 
   .eyebrow {
     font-size: .8125rem;
@@ -174,9 +183,10 @@
   .foot a:hover { color: var(--accent); border-color: rgba(124, 92, 255, .45); }
 
   /* ---------------------------------------------------------------
-     风格层：铺满视口、压在毛玻璃层之上，圆形裁切。悬停某张卡片时
-     把圆心挪到那张卡片，半径从 0 扩到最远角；移开再缩回 0。
-     结构与 .page 完全一致，所以卡片看着是「原地换掉了材质」。
+     风格层：铺满视口、压在毛玻璃层之上，圆形裁切。悬停某张卡片时把圆心
+     挪到那张卡片，半径从 0 扩到最远角；移开再缩回 0（外→内收缩）。
+     结构与 .page 完全一致，所以卡片看着是「原地换掉了材质」——因此两张
+     卡片的标题与卡片都由脚本克隆，必须像素级重合（见文件末尾）。
      --------------------------------------------------------------- */
   .morph {
     position: fixed;
@@ -192,8 +202,10 @@
 
   .morph-panel { display: none; }
 
-  .morph.open[data-theme-on="neu"] .morph-panel[data-theme-panel="neu"],
-  .morph.open[data-theme-on="code"] .morph-panel[data-theme-panel="code"] { display: block; }
+  /* 只按主题挂载面板，不跟着 .open 开关：关掉 .open 时面板必须还在，
+     否则 display 立刻变 none，裁切圆来不及收缩（会变成硬切断） */
+  .morph[data-theme-on="neu"] .morph-panel[data-theme-panel="neu"],
+  .morph[data-theme-on="code"] .morph-panel[data-theme-panel="code"] { display: block; }
 
   /* 拟态（棋盘页那套令牌） */
   .morph-panel[data-theme-panel="neu"] {
@@ -299,9 +311,9 @@
   </div>
 
   <main class="page" id="page">
-    <header class="head">
+    <header class="head" id="head">
       <p class="eyebrow">MeraNeko</p>
-      <h1 class="title">作品</h1>
+      <h1 class="title">作品集</h1>
     </header>
 
     <ul class="works">
@@ -315,7 +327,7 @@
           </span>
           <span class="card-text">
             <span class="card-title">国际象棋</span>
-            <span class="card-desc">拟态浮雕棋盘 · 完整走子规则 · Salomnia 引擎对弈</span>
+            <span class="card-desc">Neumorphism · Salmonia WASM Engine</span>
           </span>
           <span class="card-go" aria-hidden="true">→</span>
         </a>
@@ -332,8 +344,8 @@
             </svg>
           </span>
           <span class="card-text">
-            <span class="card-title">代码格式化器</span>
-            <span class="card-desc">C++ / Python / JS / JSON · 主动折行与对齐 · 语义校验</span>
+            <span class="card-title">代码格式化</span>
+            <span class="card-desc">Linear Style · C++/Python/JS/JSON Formatter</span>
           </span>
           <span class="card-go" aria-hidden="true">→</span>
         </a>
@@ -346,11 +358,9 @@
   <div class="morph" id="morph" aria-hidden="true">
     <div class="morph-panel" data-theme-panel="neu">
       <div class="page">
-        <header class="head">
-          <p class="eyebrow">MeraNeko</p>
-          <h1 class="title">作品</h1>
-        </header>
-        <!-- 卡片列表由脚本从主列表克隆（见文件末尾），保证几何与主页面完全一致 -->
+        <!-- 标题与卡片列表都由脚本从主页面克隆（见文件末尾），
+             保证几何与文字完全一致，改文案只需改一处 -->
+        <header class="head"></header>
         <ul class="works"></ul>
         <footer class="foot"><span>← 返回主页</span></footer>
       </div>
@@ -358,10 +368,7 @@
 
     <div class="morph-panel" data-theme-panel="code">
       <div class="page">
-        <header class="head">
-          <p class="eyebrow">MeraNeko</p>
-          <h1 class="title">作品</h1>
-        </header>
+        <header class="head"></header>
         <ul class="works"></ul>
         <footer class="foot"><span>← 返回主页</span></footer>
       </div>
@@ -373,10 +380,15 @@
   'use strict';
 
   /* ---------------------------------------------------------------
-     风格层里的卡片列表从主列表克隆：三份几何必须完全一致（不然圆形裁切
+     风格层里的标题与卡片都从主页面克隆：三份几何必须完全一致（不然裁切
      铺过去时卡片会错位），克隆成 <span> 去掉链接，只在样式层里显示。
-     加作品时只改主列表一处即可。
+     改文案、加作品都只改主页面一处。
      --------------------------------------------------------------- */
+  const mainHead = document.querySelector('#page .head');
+  for (const head of document.querySelectorAll('.morph-panel .head')) {
+    head.innerHTML = mainHead.innerHTML;
+  }
+
   const worksItems = document.querySelectorAll('#page .works > li');
   for (const list of document.querySelectorAll('.morph-panel .works')) {
     for (const item of worksItems) {
@@ -520,34 +532,57 @@ void main(){
   }
 
   /* ---------------------------------------------------------------
-     风格辐射：圆心落在被悬停/聚焦的那张卡片，半径取到最远角，
-     所以光是从卡片往外铺满整屏；移开把半径收回 0（外→内收缩）。
+     材质铺开：圆心落在被悬停/聚焦的那张卡片，半径取到最远角，所以光是从
+     卡片往外铺满整屏；移开把半径收回 0（外→内收缩）。
+     收缩期间面板必须保持挂载，否则裁切圆来不及收就成了硬切断。
      --------------------------------------------------------------- */
   const morph = document.getElementById('morph');
   if (!morph || prefersReduced) return;
 
   const cards = document.querySelectorAll('.card[data-theme]');
 
-  function open(card) {
-    const theme = card.getAttribute('data-theme');
-    if (!morph.querySelector('[data-theme-panel="' + theme + '"]')) return;
+  const cssMs = (name, fallback) => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const n = parseFloat(raw);
+    if (!isFinite(n)) return fallback;
+    return /ms$/.test(raw) ? n : n * 1000;
+  };
+  const growMs = cssMs('--morph-dur', 780);
 
+  let openCard = null;
+  let clearTimer = 0;
+
+  function aimAt(card) {
     const box = card.getBoundingClientRect();
     const cx = box.left + box.width / 2;
     const cy = box.top + box.height / 2;
     const far = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
-
-    /* 先落圆心、再开口：半径从 0 起跳，圆心切换本身看不见 */
-    morph.setAttribute('data-theme-on', theme);
     morph.style.setProperty('--x', cx + 'px');
     morph.style.setProperty('--y', cy + 'px');
     morph.style.setProperty('--r', far + 'px');
+  }
+
+  function open(card) {
+    const theme = card.getAttribute('data-theme');
+    if (!morph.querySelector('[data-theme-panel="' + theme + '"]')) return;
+
+    clearTimeout(clearTimer);              // 收缩还没跑完就又移回来，别把面板卸掉
+    morph.setAttribute('data-theme-on', theme);
+    aimAt(card);
+    openCard = card;
     void morph.offsetWidth;
     morph.classList.add('open');
   }
 
   function close() {
+    if (!openCard) return;
+    aimAt(openCard);                       // 圆心按离开时的位置重算
     morph.classList.remove('open');
+    clearTimeout(clearTimer);
+    clearTimer = setTimeout(() => {         // 收缩跑完再卸载，留一点余量
+      morph.removeAttribute('data-theme-on');
+      openCard = null;
+    }, growMs + 60);
   }
 
   for (const card of cards) {
@@ -555,6 +590,26 @@ void main(){
     card.addEventListener('pointerleave', close);
     card.addEventListener('focus', () => open(card));
     card.addEventListener('blur', close);
+  }
+
+  /* ---------------------------------------------------------------
+     没有 hover 的设备（触摸屏）：第一次点只展开材质，第二次点才跳转。
+     桌面有 hover，点之前早就展开了，所以这里不拦，原生跳转依旧。
+     `?touch=1` 是给桌面调试这条路径用的开关（同 neo.html 的 ?noboot=1）。
+     --------------------------------------------------------------- */
+  const noHover = ('matchMedia' in window && window.matchMedia('(hover: none)').matches) ||
+    /[?&]touch=1/.test(location.search);
+  if (noHover) {
+    let armed = null;
+    for (const card of cards) {
+      card.addEventListener('click', (ev) => {
+        if (ev.detail === 0) return;          // 键盘激活（Enter）直接跳转
+        if (armed === card) { armed = null; return; }
+        ev.preventDefault();
+        armed = card;
+        open(card);
+      });
+    }
   }
 })();
 </script>
