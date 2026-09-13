@@ -23,6 +23,11 @@
         --sunk-sm: inset 3px 3px 6px var(--shade), inset -3px -3px 6px var(--light);
         --sunk-press: inset 5px 5px 10px var(--shade), inset -5px -5px 10px var(--light);
 
+        /* 全站唯一的缓动曲线：棋子滑动与局势条共用同一条，动作读起来才是一回事 */
+        --ease: cubic-bezier(0.22, 0.85, 0.26, 1);
+        --move: 0.26s;
+        --eval-dur: 0.7s;
+
         --board: min(72vmin, 520px);
         --gap: clamp(3px, 0.6vmin, 6px);
         --well-pad: clamp(10px, 1.9vmin, 20px);
@@ -156,8 +161,11 @@
         stroke-width: 3.5;
         stroke-linejoin: round;
         stroke-linecap: round;
-        transition: transform 0.3s ease-in-out;
+        transition: transform var(--move) var(--ease);
     }
+
+    /* FLIP 的起始帧：先把棋子按位移摆回原位，这一帧不能有过渡 */
+    .pc.pre { transition: none; }
 
     .pc--out {
         fill: var(--piece-out);
@@ -271,6 +279,71 @@
     .ctl:focus-visible { outline: 2px solid rgba(109, 93, 252, 0.5); outline-offset: 2px; }
     .ctl--side .pc { width: 60%; height: 60%; }
 
+    /* 局势条：凹刻底=黑方，凸起白填充从靠己方的一端生长。
+       横屏立在棋盘左侧，竖屏（见下方媒体查询）横在棋盘上方。 */
+    .eval {
+        position: relative;
+        display: flex;
+        width: clamp(24px, 3.6vmin, 36px);
+        height: calc(var(--board) + (var(--shell-pad) + var(--well-pad)) * 2);
+        padding: clamp(6px, 1.2vmin, 12px);
+        border-radius: calc(var(--board) * 0.045);
+        background: var(--bg);
+        box-shadow: 6px 6px 12px var(--shade), -6px -6px 12px var(--light);
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    .eval.dim { opacity: 0.4; }
+
+    .eval__track {
+        position: relative;
+        flex: 1;
+        overflow: hidden;
+        border-radius: calc(var(--board) * 0.02);
+        background: var(--piece-in);
+        box-shadow: var(--sunk-sm);
+    }
+
+    .eval__fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: var(--w, 50%);
+        background: var(--piece-out);
+        box-shadow: var(--raised-sm);
+        transition: height var(--eval-dur) var(--ease), width var(--eval-dur) var(--ease);
+    }
+
+    /* 读数：条正中浮出的小标签，悬停（桌面）或点击（移动端，再次点击收起）才出现 */
+    .eval__num {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 2px 7px;
+        border-radius: calc(var(--board) * 0.022);
+        background: var(--face);
+        box-shadow: var(--raised-sm);
+        font: 600 clamp(10px, 1.7vmin, 14px)/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+        color: #5a6270;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s var(--ease);
+    }
+
+    .eval:hover .eval__num,
+    .eval.show .eval__num { opacity: 1; }
+
+    /* 引擎没数据时不给读数，免得凭空显示 0.00 */
+    .eval.dim .eval__num { display: none; }
+
+    /* 锚定端跟着执子方：横屏竖条里执子方永远在下（执白=白在下、执黑=黑在下），
+       竖屏横条的对应规则见下方媒体查询（执子方在左）。 */
+    .eval[data-human="w"] .eval__fill { top: auto; bottom: 0; }
+
     .grid.thinking.eng-w .pc--out,
     .grid.thinking.eng-b .pc--in {
         transform: scale(0.97);
@@ -303,15 +376,26 @@
 
     .pc.hide { opacity: 0; }
 
-    @media (max-width: 700px) {
+    /* 竖屏或窄屏：整体竖排——局势条横在棋盘上方，棋钟并成两列落到下面 */
+    @media (max-width: 700px), (orientation: portrait) {
         .table { flex-direction: column; }
         .clock { width: var(--board); grid-template-columns: 1fr 1fr; }
         .clk { grid-column: 1 / -1; }
+
+        .eval {
+            width: calc(var(--board) + (var(--shell-pad) + var(--well-pad)) * 2);
+            height: clamp(24px, 3.6vmin, 36px);
+        }
+
+        .eval__fill { left: 0; right: auto; width: var(--w, 50%); height: 100%; }
+        /* 横条的锚定端＝执子方在左：执白用默认左端，执黑把白翻到右端 */
+        .eval[data-human="w"] .eval__fill { top: 0; bottom: auto; }
+        .eval[data-human="b"] .eval__fill { left: auto; right: 0; }
     }
 
     @media (prefers-reduced-motion: reduce) {
         .pc.wait { animation: none; }
-        .pc, .promo button, .clk, .ctl { transition: none; }
+        .pc, .promo button, .clk, .ctl, .eval__fill, .eval__num { transition: none; }
     }
 </style>
 </head>
@@ -339,6 +423,11 @@
         </symbol>
         <symbol id="king" viewBox="0 0 100 100">
             <path d="M46 6 L54 6 L54 14 L62 14 L62 20 L54 20 L54 28 C66 30 72 34 72 42 C72 48 66 50 64 54 C66 62 72 70 72 78 Q72 86 64 86 L36 86 Q28 86 28 78 C28 70 34 62 36 54 C34 50 28 48 28 42 C28 34 34 30 46 28 L46 20 L38 20 L38 14 L46 14 Z"/>
+        </symbol>
+        <!-- 重开：270° 圆环 + 环口右端一个明显的顺时针箭头，都做成填充体以便沿用凸起滤镜 -->
+        <symbol id="retry" viewBox="0 0 100 100">
+            <path d="M27.4 27.4 A32 32 0 1 0 72.6 27.4 L64.1 35.9 A20 20 0 1 1 35.9 35.9 Z"/>
+            <path d="M82.5 45.7 L54.2 34.4 L71.2 17.4 Z"/>
         </symbol>
 
         <!-- 凸起：光源固定在左上，右下投影 + 贴边的一圈细内边线（与凹刻镜像） -->
@@ -408,6 +497,11 @@
 </svg>
 
 <div class="table">
+    <div class="eval dim" id="eval" data-human="w" aria-hidden="true">
+        <div class="eval__track"><div class="eval__fill" id="eval-fill"></div></div>
+        <span class="eval__num" id="eval-num" hidden></span>
+    </div>
+
     <main class="shell">
         <div class="well">
             <div class="grid" id="grid" role="grid" aria-label="国际象棋棋盘"></div>
@@ -689,6 +783,18 @@
     var clockEl = document.querySelector('.clock');
     var tcBtn = document.getElementById('tc');
     var sideBtn = document.getElementById('side');
+    var evalEl = document.getElementById('eval');
+    var evalFill = document.getElementById('eval-fill');
+    var evalNum = document.getElementById('eval-num');
+
+    /* 评估分一律换算成白方视角；mate 记作 1e5，够让曲线贴到端点 */
+    var evalScore = 0;
+    var evalMate = 0;
+    var evalKnown = false;
+    /* 这个引擎用超大 cp 编码杀棋：|cp| = MATE_BASE − 杀棋所需 ply 数（实测基准 60000） */
+    var MATE_CP = 30000;
+    var MATE_BASE = 60000;
+    var sideBtnKey = '';
 
     var squares = [], state = E.start(), sel = -1, targets = [], drag = null, busy = false, over = false;
     var promoBox = null;
@@ -731,7 +837,8 @@
     function pieceSVG(p, d) {
         var white = p.c === 'w';
         var cls = 'pc ' + (white ? 'pc--out' : 'pc--in');
-        if (loading()) cls += (d <= loadState.limit ? ' wait' : ' hide');
+        // d==null 是控件/替身，不在麦浪范围内
+        if (d != null && loading()) cls += (d <= loadState.limit ? ' wait' : ' hide');
         var style = d == null ? '' : ' style="--d:' + d + '"';
         return '<svg class="' + cls + '"' + style + ' viewBox="0 0 100 100" aria-hidden="true">' +
                '<use href="#' + SYM[p.t] + '" filter="url(#' + (white ? 'convex' : 'engrave') + ')"/></svg>';
@@ -746,6 +853,39 @@
 
     function paintAll() {
         for (var i = 0; i < 64; i++) paint(i);
+    }
+
+    /* makeMove 复用棋子对象（只有升变换新），所以对象本身就能当走子前后的身份键 */
+    function snapshot() {
+        var map = new Map(), i, pc;
+        for (i = 0; i < 64; i++) {
+            pc = squares[i].firstChild;
+            if (pc && state.board[i]) map.set(state.board[i], pc.getBoundingClientRect());
+        }
+        return map;
+    }
+
+    function slide(pre) {
+        var todo = [], i, pc, from, now, dx, dy;
+        for (i = 0; i < 64; i++) {
+            pc = squares[i].firstChild;
+            from = state.board[i] && pre.get(state.board[i]);
+            if (!pc || !from) continue;
+            now = pc.getBoundingClientRect();
+            dx = from.left - now.left;
+            dy = from.top - now.top;
+            if (dx || dy) todo.push([pc, dx, dy]);
+        }
+        if (!todo.length) return;
+        for (i = 0; i < todo.length; i++) {
+            todo[i][0].classList.add('pre');
+            todo[i][0].style.transform = 'translate(' + todo[i][1] + 'px,' + todo[i][2] + 'px)';
+        }
+        void grid.offsetWidth;
+        for (i = 0; i < todo.length; i++) {
+            todo[i][0].classList.remove('pre');
+            todo[i][0].style.transform = '';
+        }
     }
 
     function clearMarks() {
@@ -801,10 +941,13 @@
 
     function commit(m) {
         var mover = state.turn;
+        var pawn = state.board[m.from];
+        var pre = snapshot();
         state = E.makeMove(state, m);
+        if (m.promo) pre.set(state.board[m.to], pre.get(pawn));
         sel = -1; targets = []; drag = null;
         lastMove = { from: m.from, to: m.to };
-        clearMarks(); paintAll();
+        clearMarks(); paintAll(); slide(pre);
         var st = E.status(state);
         over = (st === 'mate' || st === 'stalemate');
         paintState(st);
@@ -954,8 +1097,15 @@
         busy = false;
     }
 
+    // 读数：移动端点一次浮出、再点收起；点别处也收起。桌面端悬停另有 CSS :hover
+    evalEl.addEventListener('click', function () {
+        if (evalNum.hidden) return;
+        evalEl.classList.toggle('show');
+    });
+
     window.addEventListener('pointerdown', function (e) {
         if (promoBox && !promoBox.contains(e.target)) closePromo();
+        if (!evalEl.contains(e.target)) evalEl.classList.remove('show');
     }, true);
 
     grid.addEventListener('keydown', function (e) {
@@ -1011,10 +1161,48 @@
         paintClock();
     }
 
+    /* 读数文本：白方视角。杀棋记法——1 步杀直接写结果 1-0／0-1，多步杀写 #N／-#N。
+       该引擎用超大 cp 编码杀棋（|cp| = MATE_BASE − ply 数），实测 59999=1 ply、
+       59983=17 ply（pv 长度吻合），故主动杀那方的步数 = ceil(ply / 2)。 */
+    function evalLabel() {
+        var n = evalMate ? Math.abs(evalMate) : 0;
+        if (!n && Math.abs(evalScore) >= MATE_CP)
+            n = Math.max(1, Math.ceil((MATE_BASE - Math.abs(evalScore)) / 2));
+        if (n) return n === 1
+            ? (evalScore > 0 ? '1-0' : '0-1')
+            : (evalScore > 0 ? '#' : '-#') + n;
+        var pawns = evalScore / 100;
+        return (pawns > 0 ? '+' : pawns < 0 ? '-' : '') + Math.abs(pawns).toFixed(2);
+    }
+
+    /* 分差用 logistic 压成占比：±320 厘兵约到 73/27，再大也只贴端点不越界 */
+    function paintEval() {
+        evalFill.style.setProperty('--w', (100 / (1 + Math.exp(-evalScore / 320))).toFixed(2) + '%');
+        evalEl.setAttribute('data-human', human);
+        evalEl.classList.toggle('dim', !engine.ready);
+        evalNum.textContent = evalLabel();
+        evalNum.hidden = !evalKnown;
+    }
+
+    function paintSideBtn() {
+        var key = (over ? 'retry' : 'side') + human;
+        if (sideBtnKey === key) return;
+        sideBtnKey = key;
+        // 重开：凸按钮上刻一枚凹图案，与换边那枚凸起的白王互为镜像
+        sideBtn.innerHTML = over
+            ? '<svg class="pc pc--in" viewBox="0 0 100 100" aria-hidden="true">' +
+              '<use href="#retry" filter="url(#engrave)"/></svg>'
+            : pieceSVG({ t: 'k', c: human }, null);
+        sideBtn.setAttribute('aria-label', over ? '重开一局'
+            : (human === 'w' ? '你执白，点击换边' : '你执黑，点击换边'));
+    }
+
     function syncControls() {
         var locked = !over && history.length > 0;
         tcBtn.disabled = locked;
         sideBtn.disabled = locked;
+        paintSideBtn();
+        paintEval();
         markOwn();
     }
 
@@ -1108,8 +1296,24 @@
         return 'go depth ' + DEPTH_CAP + ' movetime ' + ms;
     }
 
+    /* go 是阻塞调用，返回整段 stdout：倒着找最后一条 info，就是最终深度的那次汇报 */
+    function parseEval(out) {
+        var lines = (out || '').split('\n'), i, s, m;
+        for (i = lines.length - 1; i >= 0; i--) {
+            s = lines[i];
+            if (s.indexOf('depth') < 0 || s.indexOf(' score ') < 0) continue;
+            m = /score\s+mate\s+([+-]?\d+)/.exec(s);
+            if (m) return { mate: +m[1] };
+            m = /score\s+cp\s+([+-]?\d+)/.exec(s);
+            if (m) return { cp: +m[1] };
+        }
+        return null;
+    }
+
     function askEngine() {
         if (over || engine.thinking || !engine.ready || engine.dead) return;
+        // UCI 的 score 永远是"轮走方视角"，这里轮走方是引擎，翻成白方视角要带符号
+        var sign = state.turn === 'w' ? 1 : -1;
         engine.thinking = true;
         grid.classList.add('thinking');
         syncControls();
@@ -1118,8 +1322,14 @@
             .then(function () { return sendEngine(goLine()); })
             .then(function (out) {
                 var m = /bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/.exec(out || '');
+                var e = parseEval(out);
                 engine.thinking = false;
                 grid.classList.remove('thinking');
+                if (e) {
+                    evalKnown = true;
+                    evalMate = e.mate ? sign * e.mate : 0;
+                    evalScore = e.mate ? sign * 1e5 : sign * e.cp;
+                }
                 if (m && !over) applyEngineMove(m[1]);
                 syncControls();
             })
@@ -1165,7 +1375,8 @@
         sendEngine('uci')
             .then(function () { return sendEngine('isready'); })
             .then(function () { return sendEngine('ucinewgame'); })
-            .then(function () { return sendEngine('setoption name OwnBook value true'); })
+            // 关库：开局库出招不发 info，局势条拿不到 score，会整个开局停在 50%
+            .then(function () { return sendEngine('setoption name OwnBook value false'); })
             .then(function () { return sendEngine('setoption name MultiPV value 1'); })
             .then(function () {
                 syncControls();
@@ -1239,6 +1450,10 @@
     function newGame() {
         state = E.start();
         history = [];
+        evalScore = 0;
+        evalMate = 0;
+        evalKnown = false;
+        evalEl.classList.remove('show');
         sel = -1; targets = []; drag = null; over = false;
         lastMove = null;
         clock.w = TC[tcIndex].base;
@@ -1277,10 +1492,9 @@
 
     sideBtn.addEventListener('click', function () {
         if (sideBtn.disabled) return;
+        if (over) { newGame(); return; }
         human = human === 'w' ? 'b' : 'w';
         flipped = human === 'b';
-        sideBtn.innerHTML = pieceSVG({ t: 'k', c: human }, null);
-        sideBtn.setAttribute('aria-label', (human === 'w' ? '你执白' : '你执黑') + '，点击换边');
         newGame();
     });
 
