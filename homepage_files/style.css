@@ -390,3 +390,44 @@ transform: translateX(-50%) rotate(360deg);/* 转起来~ */
     border-radius: 40px;
     backdrop-filter: blur(2px);
 }
+
+/* 右上角作品集入口：开屏遮罩收起后再淡入 */
+.works-link {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    z-index: 200;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    color: rgba(60, 60, 60, 0.35);
+    text-decoration: none;
+    opacity: 0;
+    animation: works-link-in 0.9s ease 1.6s forwards;
+    transition: color 0.3s ease;
+}
+
+.works-link:hover {
+    color: rgba(40, 40, 40, 0.85);
+}
+
+.works-link .arrow {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+
+.works-link:hover .arrow {
+    transform: translateX(3px);
+}
+
+@keyframes works-link-in {
+    to { opacity: 1; }
+}
+
+@media (max-width: 480px) {
+    .works-link {
+        top: 16px;
+        right: 18px;
+        font-size: 12px;
+    }
+}
