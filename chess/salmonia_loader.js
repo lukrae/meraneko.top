@@ -5,9 +5,9 @@
     逐行投递 UCI 命令。本文件不含任何引擎逻辑。
 
     传输策略：
-        优先取预压缩的 salmonia.wasm.gz，把下载流直接喂给
-        DecompressionStream 再交给 instantiateStreaming，
-        JS 侧不产生 54 MB 的中间副本；不支持流式解压或
+        取预压缩的 salmonia.wasm.gz，把下载流直接喂给
+        DecompressionStream 再交给 instantiateStreaming，边下边解压
+        边编译，JS 侧不产生 54 MB 中间副本；不支持流式解压或
         .gz 不存在时回退原始 .wasm。
 
     加载前先做能力探测（SIMD / wasm 异常），避免先下 12 MB
@@ -110,6 +110,11 @@ export class Salmonia {
             { headers: { 'content-type': 'application/wasm' } }
         );
 
+        /*
+            不做分片并发：浏览器里多路 Range 流共享同一条 h2 连接，带宽仍是
+            链子上限（同一时刻、同一 CDN：单流 44s / 8 路 54s），还丢了边下
+            边编译的重叠。curl 靠多开 TCP 能提速，页面不能。
+        */
         if (typeof DecompressionStream === 'function') {
 
             let gz = null;
@@ -122,17 +127,25 @@ export class Salmonia {
 
             if (gz && gz.ok && gz.body) {
 
+                /*
+                    在压缩流上计数：loaded / total 才是真实下载比例。
+                    计在解压流上会跑到 3.7 倍，页面进度早就满了。
+                */
                 const total = Number(gz.headers.get('content-length')) || 0;
 
-                // 宿主已按 Content-Encoding 代理解压：拿到的就是 wasm 本体
+                /*
+                    宿主已按 Content-Encoding 代理解压：拿到的就是 wasm 本体，
+                    长度与压缩体不符，报 total 0 让页面维持当前进度
+                */
                 if ((gz.headers.get('content-encoding') || '').includes('gzip'))
-                    return { response: asWasm(gz.body, total), compressed: false };
+                    return { response: asWasm(gz.body, 0), compressed: false };
 
                 try {
                     return {
-                        response: asWasm(
-                            gz.body.pipeThrough(new DecompressionStream('gzip')),
-                            total
+                        response: new Response(
+                            (onProgress ? this._count(gz.body, total, onProgress) : gz.body)
+                                .pipeThrough(new DecompressionStream('gzip')),
+                            { headers: { 'content-type': 'application/wasm' } }
                         ),
                         compressed: true,
                     };
