@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08090D">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="C++ / Python / JS / JSON 代码格式化器：自研词法分析，纯前端运行。">
+<title>代码格式化 · MeraNeko</title>
+<link rel="shortcut icon" href="../../favicon.jpg">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div class="app">
+  <header class="bar">
+    <a class="brand" href="../../" title="返回主站" aria-label="返回主站">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <span class="logo">格式化</span>
+
+    <div class="seg" id="langSeg" role="tablist" aria-label="语言">
+      <button type="button" role="tab" data-lang="cpp" aria-selected="true">C++</button>
+      <button type="button" role="tab" data-lang="py" aria-selected="false">Python</button>
+      <button type="button" role="tab" data-lang="js" aria-selected="false">JS</button>
+      <button type="button" role="tab" data-lang="json" aria-selected="false">JSON</button>
+    </div>
+
+    <span class="grow"></span>
+
+    <div class="settings" id="settings">
+      <button class="icon-btn" id="btnSettings" type="button" aria-expanded="false" aria-controls="panel" title="格式化选项" aria-label="格式化选项">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+
+      <div class="panel" id="panel" role="group" aria-label="格式化选项" hidden>
+        <label class="prow">预设
+          <select id="optPreset"></select>
+        </label>
+        <label class="prow">缩进
+          <select id="optIndent">
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+            <option value="8">8</option>
+            <option value="tab">TAB</option>
+          </select>
+        </label>
+        <label class="prow" data-lang="cpp py js">行宽
+          <input type="number" id="optWidth" min="40" max="200" step="2" value="100">
+        </label>
+        <label class="prow" data-lang="cpp py js">连续空行上限
+          <select id="optBlank">
+            <option value="0">0</option>
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+          </select>
+        </label>
+        <label class="prow" data-lang="cpp py js">主动折行
+          <input type="checkbox" id="optWrap" checked>
+        </label>
+        <label class="prow" data-lang="cpp py js">合并放得下的括号
+          <input type="checkbox" id="optUnwrap" checked>
+        </label>
+        <label class="prow" data-lang="cpp py js">连续赋值对齐
+          <input type="checkbox" id="optAlign">
+        </label>
+        <label class="prow" data-lang="cpp py">排序 include / import
+          <input type="checkbox" id="optSort" checked>
+        </label>
+
+        <div class="pgroup" data-lang="cpp js">
+          <div class="psec">括号与标签</div>
+          <label class="prow">左花括号
+            <select id="optBrace">
+              <option value="attach" selected>同行</option>
+              <option value="allman">另起一行</option>
+            </select>
+          </label>
+          <label class="prow">else / catch 位置
+            <select id="optElse">
+              <option value="join" selected>跟在 } 后</option>
+              <option value="newline">另起一行</option>
+            </select>
+          </label>
+          <label class="prow">case 标签
+            <select id="optCase">
+              <option value="align">与 switch 对齐</option>
+              <option value="indent" selected>缩进一层</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="pgroup" data-lang="py">
+          <div class="psec">Python</div>
+          <label class="prow">尾逗号触发换行
+            <input type="checkbox" id="optMagic" checked>
+          </label>
+        </div>
+
+        <label class="prow">输入时实时格式化
+          <input type="checkbox" id="optAuto" checked>
+        </label>
+      </div>
+    </div>
+
+    <button class="run" id="btnRun" title="Ctrl / ⌘ + Enter">格式化</button>
+  </header>
+
+  <main class="panes">
+    <section class="pane">
+      <div class="pane-bar">
+        <span class="tag">输入</span>
+        <span class="stat" id="inStat" title="行 · 字符"></span>
+        <span class="grow"></span>
+        <button class="icon-btn" id="btnFile" title="打开本地文件" aria-label="打开本地文件">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnSample" title="载入示例" aria-label="载入示例">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 7v10M7 12h10"/><circle cx="12" cy="12" r="9"/></svg>
+        </button>
+        <button class="icon-btn" id="btnClear" title="清空" aria-label="清空">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 13h9l1-13"/></svg>
+        </button>
+      </div>
+      <div class="ed">
+        <div class="gutter"><div class="gutter-inner" id="gutter"></div></div>
+        <div class="ed-body">
+          <div class="hl-lines" id="hl" aria-hidden="true"></div>
+          <textarea id="src" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="待格式化的代码"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="pane-bar">
+        <span class="tag">输出</span>
+        <span class="stat" id="outStat" title="行 · 字符"></span>
+        <span class="diff" id="diff"></span>
+        <span class="verdict" id="verdict"></span>
+        <span class="grow"></span>
+        <button class="icon-btn" id="btnCopy" title="复制结果" aria-label="复制结果">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
+        </button>
+        <button class="icon-btn" id="btnDownload" title="下载文件" aria-label="下载文件">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>
+        </button>
+      </div>
+      <div class="out" id="out"></div>
+    </section>
+  </main>
+</div>
+
+<input type="file" id="filePicker" hidden
+  accept=".c,.cc,.cpp,.cxx,.h,.hpp,.hh,.hxx,.ino,.py,.pyw,.js,.jsx,.mjs,.cjs,.ts,.tsx,.json,.jsonc,.txt">
+<div class="drop" id="drop" hidden aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+</div>
+
+<script src="./fmt-lex.js"></script>
+<script src="./fmt-sort.js"></script>
+<script src="./fmt-layout.js"></script>
+<script src="./fmt-cpp.js"></script>
+<script src="./fmt-python.js"></script>
+<script src="./fmt-js.js"></script>
+<script src="./fmt-json.js"></script>
+<script src="./fmt-highlight.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
