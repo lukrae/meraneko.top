@@ -303,11 +303,9 @@ transform: translateX(-50%) rotate(360deg);/* 转起来~ */
     color: rgba(255, 255, 255, 0.9);
 }
 
-.footer-btn .fi {
-    height: 20px;
-    width: auto;
+.footer-btn i {
+    font-size: 20px;
     margin-bottom: 2px;
-    fill: currentColor;
 }
 
 .footer-btn span {
