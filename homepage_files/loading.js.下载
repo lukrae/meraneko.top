@@ -3,15 +3,28 @@ const bg = document.getElementById('bg');
 const loaderContainer = document.getElementById('loaderContainer');
 const animationStartTime = performance.now();
 
-window.addEventListener('load', function () {
+/* load 要等背景照、头像、字体子集全部下完（首访实测 22s+），开场不能压在它上面 */
+const minDisplayTime = 1000; // 至少显示1000ms，800-2000ms最好
+const hardCap = 2200;
+let exitQueued = false;
+
+function queueExit() {
+    if (exitQueued) return;
+    exitQueued = true;
     const elapsed = performance.now() - animationStartTime;
-    const minDisplayTime = 1000; // 至少显示1000ms，800-2000ms最好
-    if (elapsed < minDisplayTime) {
-        setTimeout(startExitAnimation, minDisplayTime - elapsed);
-    } else {
-        startExitAnimation();
-    }
-});
+    setTimeout(startExitAnimation, Math.max(0, minDisplayTime - elapsed));
+}
+
+window.addEventListener('load', queueExit);
+setTimeout(queueExit, hardCap);
+
+/* 背景图多半比遮罩晚到，真解码完了再淡入；URL 只认 CSS 里那一份 */
+const bgProbe = new Image();
+const cssUrl = getComputedStyle(bg).backgroundImage.match(/url\((.*?)\)/);
+if (cssUrl) {
+    bgProbe.onload = () => bg.classList.add('img-ready');
+    bgProbe.src = cssUrl[1].replace(/^["']|["']$/g, '');
+}
 
 function startExitAnimation() {
     const descText = document.querySelector('.description-text');

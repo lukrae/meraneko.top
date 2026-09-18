@@ -1,0 +1,64 @@
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.108.woff2) format('woff2');
+  unicode-range: U+24;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.113.woff2) format('woff2');
+  unicode-range: U+26, U+79D2, U+7A33;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.114.woff2) format('woff2');
+  unicode-range: U+2026, U+949F;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.115.woff2) format('woff2');
+  unicode-range: U+25, U+FF1B;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.117.woff2) format('woff2');
+  unicode-range: U+4E, U+201C-201D, U+3010-3011, U+5DF2, U+8FD0, U+96C6, U+FF1F;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.118.woff2) format('woff2');
+  unicode-range: U+7C, U+A9, U+4F5C, U+5206, U+54C1, U+5929, U+5B9A, U+5C0F, U+65F6, U+672C, U+7AD9, U+884C, U+FF01, U+FF08-FF09;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7oqP0dTpxZbB9E9gjjmzKvaeKHUTtJDWv3z-us4bxD8F5og.119.woff2) format('woff2');
+  unicode-range: U+20, U+27, U+2C-32, U+35-36, U+38-3B, U+41-44, U+47-48, U+4C-4D, U+4F-50, U+52, U+54, U+5B, U+5D, U+61-69, U+6B-70, U+72-7A, U+B7, U+2013-2014, U+3001-3002, U+FF0C, U+FF1A;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url(fonts-min/H4chBXePl9DZ0Xe7gG9cyOj7kqGWbg.woff2) format('woff2');
+  unicode-range: U+20, U+24-27, U+2C-32, U+35-36, U+38-3B, U+41-44, U+47-48, U+4C-50, U+52, U+54, U+5B, U+5D, U+61-69, U+6B-70, U+72-7A, U+7C, U+A9, U+B7, U+2013-2014, U+2018-2019, U+201C-201D, U+2026;
+}
